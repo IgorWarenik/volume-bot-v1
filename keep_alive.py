@@ -17,7 +17,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         
 def run():
     try:
-        server = HTTPServer(('0.0.0.0', 8080), RequestHandler)
+        server = HTTPServer(('0.0.0.0', 5000), RequestHandler)
         server.serve_forever()
     except Exception as e:
         logger.error(f"Ошибка запуска веб-сервера keep_alive: {e}")
