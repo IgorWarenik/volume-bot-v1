@@ -383,6 +383,7 @@ async def main():
 
                 direction_emoji = "🟢 LONG" if spike["is_green"] else "🔴 SHORT"
 
+                tv_link = f"https://www.tradingview.com/chart/?symbol=BYBIT:{symbol}.P"
                 msg = (
                     f"⚠️ <b>АНОМАЛЬНЫЙ ОБЪЕМ</b> ⚠️\n\n"
                     f"💎 <b>{symbol}</b>\n"
@@ -390,7 +391,8 @@ async def main():
                     f"💲 Цена: {spike['price']}\n"
                     f"📊 Оборот свечи: {spike['current_turnover'] / 1000:.1f}k USDT\n"
                     f"📉 Средний оборот: {spike['avg_turnover'] / 1000:.1f}k USDT\n"
-                    f"🧭 Направление: {direction_emoji}"
+                    f"🧭 Направление: {direction_emoji}\n\n"
+                    f"📉 <a href=\"{tv_link}\">График на TradingView</a>"
                 )
 
                 logger.info(f"🔥 Всплеск! {symbol} x{spike['ratio']:.1f}")
