@@ -230,7 +230,8 @@ async def set_telegram_menu_commands(session: aiohttp.ClientSession, token: str)
         {"command": "help", "description": "Инструкция по настройкам"},
         {"command": "set_vol", "description": "Изменить множитель объема"},
         {"command": "set_can", "description": "Изменить кол-во свечей"},
-        {"command": "set_int", "description": "Изменить частоту проверок"}
+        {"command": "set_int", "description": "Изменить частоту проверок"},
+        {"command": "set_tf", "description": "Изменить таймфрейм свечей"}
     ]
     try:
         await session.post(url, json={"commands": commands})
@@ -278,12 +279,14 @@ async def poll_telegram(session: aiohttp.ClientSession):
                                 f"⚙️ <b>Текущие настройки:</b>\n"
                                 f"Множитель объема: <b>x{config.VOLUME_MULTIPLIER}</b>\n"
                                 f"Кол-во свечей: <b>{config.LOOKBACK_CANDLES}</b>\n"
+                                f"Таймфрейм: <b>{config.TIMEFRAME} мин</b>\n"
                                 f"Интервал (сек): <b>{config.SCAN_INTERVAL_SEC}</b>\n\n"
                                 f"🛠 <b>Как изменить настройки:</b>\n"
                                 f"Отправьте команду и новое значение через пробел:\n"
                                 f"🔹 <code>/set_vol 15.5</code> — изменить множитель объема\n"
                                 f"🔹 <code>/set_can 30</code> — изменить количество свечей\n"
-                                f"🔹 <code>/set_int 45</code> — изменить интервал опроса"
+                                f"🔹 <code>/set_int 45</code> — изменить интервал опроса\n"
+                                f"🔹 <code>/set_tf 60</code> — таймфрейм (1,3,5,15,30,60,120,240,360,720)"
                             )
                             await send_telegram_message(reply)
                         elif text.startswith("/set_vol"):
@@ -313,6 +316,27 @@ async def poll_telegram(session: aiohttp.ClientSession):
                                 logger.info(f"Интервал сканирования изменен на {val}")
                             except:
                                 await send_telegram_message("❌ Неверный формат. Используйте: `/set_int 30`")
+                        elif text.startswith("/set_tf"):
+                            VALID_TIMEFRAMES = ["1", "3", "5", "15", "30", "60", "120", "240", "360", "720"]
+                            try:
+                                val = text.split()[1]
+                                if val not in VALID_TIMEFRAMES:
+                                    await send_telegram_message(
+                                        f"❌ Недопустимый таймфрейм: <b>{val}</b>\n"
+                                        f"Допустимые значения: <code>{', '.join(VALID_TIMEFRAMES)}</code>"
+                                    )
+                                else:
+                                    config.TIMEFRAME = val
+                                    update_config_file("TIMEFRAME", val)
+                                    await send_telegram_message(
+                                        f"✅ Таймфрейм изменен и сохранен на: <b>{val} мин</b>"
+                                    )
+                                    logger.info(f"Таймфрейм изменен на {val}")
+                            except:
+                                await send_telegram_message(
+                                    f"❌ Неверный формат. Используйте: <code>/set_tf 60</code>\n"
+                                    f"Допустимые значения: <code>{', '.join(VALID_TIMEFRAMES)}</code>"
+                                )
                             
         except Exception as e:
             if config.VERBOSE:
