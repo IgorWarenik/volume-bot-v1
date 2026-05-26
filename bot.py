@@ -4,7 +4,7 @@ import time
 import logging
 import config
 import re
-from telegram_notifier import send_telegram_message
+from telegram_notifier import send_telegram_message, send_signal
 from keep_alive import keep_alive
 
 # Настройка логирования
@@ -358,7 +358,7 @@ async def main():
                 )
                 
                 logger.info(f"🔥 Всплеск! {symbol} x{spike['ratio']:.1f}")
-                await send_telegram_message(msg)
+                await send_signal(msg)
                 
             elapsed = time.time() - start_time
             LAST_CYCLE_DURATION = elapsed
