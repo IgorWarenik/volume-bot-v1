@@ -2,10 +2,41 @@ import asyncio
 import aiohttp
 import time
 import logging
+import json
+import os
 import config
 import re
 from telegram_notifier import send_telegram_message, send_signal
 from keep_alive import keep_alive
+
+DEDUP_FILE = "sent_alerts.json"
+
+def load_sent_alerts() -> dict:
+    """Загрузить историю отправленных алертов с диска."""
+    if not os.path.exists(DEDUP_FILE):
+        return {}
+    try:
+        with open(DEDUP_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_sent_alerts(data: dict):
+    """Сохранить историю на диск."""
+    try:
+        with open(DEDUP_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        logger.error(f"Ошибка сохранения дедупликации: {e}")
+
+def cleanup_sent_alerts(data: dict) -> dict:
+    """Удалить записи старше 2 таймфреймов, чтобы файл не разрастался."""
+    try:
+        timeframe_ms = int(config.TIMEFRAME) * 60 * 1000
+        cutoff = int(time.time() * 1000) - 2 * timeframe_ms
+        return {k: v for k, v in data.items() if v > cutoff}
+    except Exception:
+        return data
 
 # Настройка логирования
 logging.basicConfig(
@@ -299,9 +330,10 @@ async def main():
     logger.info(f"Настройки: x{config.VOLUME_MULTIPLIER} объем за {config.LOOKBACK_CANDLES} минут.")
     
     global LAST_SCAN_TIME, LAST_CYCLE_DURATION, MONITORED_COINS, IS_SCANNING
-    
-    last_alert_time = {}
-    
+
+    last_alert_time = load_sent_alerts()
+    logger.info(f"Загружено {len(last_alert_time)} записей дедупликации.")
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
@@ -334,19 +366,23 @@ async def main():
             
             spikes = [r for r in results if r is not None]
             
+            # Очистка устаревших записей раз в цикл
+            last_alert_time = cleanup_sent_alerts(last_alert_time)
+
+            sent_any = False
             for spike in spikes:
                 symbol = spike["symbol"]
                 ts = spike["timestamp"]
-                
-                # Проверка: не отправляли ли мы уже алерт на эту свечу?
-                if symbol in last_alert_time and last_alert_time[symbol] >= ts:
+
+                # Пропустить, если уже отправляли алерт для этой свечи
+                if last_alert_time.get(symbol, 0) >= ts:
                     continue
-                    
+
                 last_alert_time[symbol] = ts
-                
+                sent_any = True
+
                 direction_emoji = "🟢 LONG" if spike["is_green"] else "🔴 SHORT"
-                
-                # Формируем сообщение
+
                 msg = (
                     f"⚠️ <b>АНОМАЛЬНЫЙ ОБЪЕМ</b> ⚠️\n\n"
                     f"💎 <b>{symbol}</b>\n"
@@ -356,9 +392,13 @@ async def main():
                     f"📉 Средний оборот: {spike['avg_turnover'] / 1000:.1f}k USDT\n"
                     f"🧭 Направление: {direction_emoji}"
                 )
-                
+
                 logger.info(f"🔥 Всплеск! {symbol} x{spike['ratio']:.1f}")
                 await send_signal(msg)
+
+            # Сохранить состояние дедупликации на диск после каждого цикла
+            if sent_any:
+                save_sent_alerts(last_alert_time)
                 
             elapsed = time.time() - start_time
             LAST_CYCLE_DURATION = elapsed
