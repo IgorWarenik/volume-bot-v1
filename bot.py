@@ -318,12 +318,21 @@ async def poll_telegram(session: aiohttp.ClientSession):
                                 await send_telegram_message("❌ Неверный формат. Используйте: `/set_int 30`")
                         elif text.startswith("/set_tf"):
                             VALID_TIMEFRAMES = ["1", "3", "5", "15", "30", "60", "120", "240", "360", "720"]
-                            try:
-                                val = text.split()[1]
+                            parts = text.split()
+                            if len(parts) < 2:
+                                await send_telegram_message(
+                                    f"⚙️ <b>Текущий таймфрейм:</b> {config.TIMEFRAME} мин\n\n"
+                                    f"Чтобы изменить, отправьте: <code>/set_tf &lt;значение&gt;</code>\n"
+                                    f"Допустимые значения: <code>{', '.join(VALID_TIMEFRAMES)}</code>\n"
+                                    f"Пример: <code>/set_tf 60</code>"
+                                )
+                            else:
+                                val = parts[1]
                                 if val not in VALID_TIMEFRAMES:
                                     await send_telegram_message(
                                         f"❌ Недопустимый таймфрейм: <b>{val}</b>\n"
-                                        f"Допустимые значения: <code>{', '.join(VALID_TIMEFRAMES)}</code>"
+                                        f"Допустимые значения: <code>{', '.join(VALID_TIMEFRAMES)}</code>\n"
+                                        f"Пример: <code>/set_tf 60</code>"
                                     )
                                 else:
                                     config.TIMEFRAME = val
@@ -332,11 +341,6 @@ async def poll_telegram(session: aiohttp.ClientSession):
                                         f"✅ Таймфрейм изменен и сохранен на: <b>{val} мин</b>"
                                     )
                                     logger.info(f"Таймфрейм изменен на {val}")
-                            except:
-                                await send_telegram_message(
-                                    f"❌ Неверный формат. Используйте: <code>/set_tf 60</code>\n"
-                                    f"Допустимые значения: <code>{', '.join(VALID_TIMEFRAMES)}</code>"
-                                )
                             
         except Exception as e:
             if config.VERBOSE:
